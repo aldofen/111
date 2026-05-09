@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>解码助手 - 二值的黑白图像</title>
+    <style>
+        * { box-sizing: border-box; user-select: none; }
+        body {
+            font-family: 'Microsoft YaHei', system-ui;
+            background: #f0f2f5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+        }
+        .card {
+            max-width: 900px;
+            width: 100%;
+            background: white;
+            border-radius: 36px;
+            box-shadow: 0 20px 35px -8px rgba(0,0,0,0.2);
+            padding: 20px 25px 30px;
+        }
+        h1 { font-size: 1.6rem; margin: 0 0 5px; color: #1e466e; }
+        .sub {
+            background: #eaf4ff;
+            padding: 10px 15px;
+            border-radius: 24px;
+            font-size: 0.85rem;
+            margin: 10px 0 20px;
+            border-left: 4px solid #2c7da0;
+        }
+        .main-layout {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 30px;
+            justify-content: center;
+            margin: 20px 0;
+        }
+        /* 左侧画板区域 */
+        .grid-area {
+            flex: 2;
+            min-width: 280px;
+            display: flex;
+            justify-content: center;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            background-color: #ccc;
+            border: 2px solid #8a8a8a;
+            border-radius: 16px;
+            overflow: hidden;
+            width: 100%;
+            max-width: 380px;
+            aspect-ratio: 1 / 1;
+            box-shadow: 0 8px 18px rgba(0,0,0,0.1);
+        }
+        .cell {
+            background-color: white;
+            border: 1px solid #bbb;
+            cursor: pointer;
+            transition: 0.05s linear;
+        }
+        .cell.black { background-color: #1e1e2a; }
+        .cell:hover { filter: brightness(0.96); }
+        /* 右侧编码区域 */
+        .code-area {
+            flex: 1;
+            min-width: 200px;
+            background: #1e2a36;
+            border-radius: 24px;
+            padding: 18px;
+            color: #b9f6ca;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        .code-area h3 {
+            margin: 0 0 12px;
+            font-size: 1.1rem;
+            color: #fff;
+            text-align: center;
+        }
+        .code-string {
+            background: #0f1a24;
+            padding: 15px;
+            border-radius: 18px;
+            font-family: monospace;
+            font-size: 1rem;
+            line-height: 1.6;
+            text-align: center;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+        /* 按钮和答案区域 */
+        .control-bar {
+            display: flex;
+            justify-content: center;
+            gap: 16px;
+            margin: 20px 0 15px;
+        }
+        button {
+            padding: 8px 24px;
+            border-radius: 40px;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+            transition: 0.1s;
+            background: #6c757d;
+            color: white;
+            font-size: 0.9rem;
+        }
+        button.primary { background: #2c7da0; }
+        button:active { transform: scale(0.97); }
+        .answer-area {
+            background: #e9ecef;
+            border-radius: 20px;
+            padding: 15px;
+            margin-top: 10px;
+            text-align: center;
+            display: none;
+        }
+        .answer-preview {
+            display: inline-block;
+            background: white;
+            border-radius: 12px;
+            padding: 10px;
+            margin-top: 10px;
+        }
+        .grid-answer {
+            display: grid;
+            grid-template-columns: repeat(6, 30px);
+            gap: 2px;
+            background: #ccc;
+            padding: 5px;
+            border-radius: 8px;
+            justify-content: center;
+        }
+        .cell-answer {
+            width: 30px;
+            height: 30px;
+            background-color: white;
+            border: 1px solid #aaa;
+        }
+        .cell-answer.black { background-color: #1e1e2a; }
+        footer {
+            text-align: center;
+            font-size: 0.7rem;
+            color: #6c7a89;
+            margin-top: 20px;
+            padding-top: 15px;
+            border-top: 1px solid #e2e8f0;
+        }
+        @media (max-width: 700px) {
+            .grid-answer { grid-template-columns: repeat(6, 22px); }
+            .cell-answer { width: 22px; height: 22px; }
+        }
+    </style>
+</head>
+<body>
+<div class="card">
+    <h1>🔍 解码助手</h1>
+    <div class="sub">
+        💡 根据右侧的二进制编码，在左侧格子中涂出对应的黑白图案。<br>
+        完成后点击“显示参考答案”自行核对。
+    </div>
+
+    <div class="main-layout">
+        <!-- 左侧：可涂色画板 -->
+        <div class="grid-area">
+            <div class="grid" id="pixelGrid"></div>
+        </div>
+
+        <!-- 右侧：编码串展示 -->
+        <div class="code-area">
+            <h3>📟 待解码编码 (6x6)</h3>
+            <div class="code-string" id="givenCode">
+                001100<br>011110<br>111111<br>111111<br>011110<br>001100
+            </div>
+            <div style="font-size:0.7rem; margin-top: 12px; text-align:center;">
+                ⚡ 每行6个数字，黑色=1，白色=0
+            </div>
+        </div>
+    </div>
+
+    <div class="control-bar">
+        <button id="clearBtn">🧽 清空画板</button>
+        <button id="showAnswerBtn" class="primary">📖 显示参考答案</button>
+    </div>
+
+    <div id="answerPanel" class="answer-area">
+        <div>✅ 参考答案（正确图案）：</div>
+        <div class="answer-preview">
+            <div class="grid-answer" id="answerGrid"></div>
+        </div>
+        <div style="margin-top: 10px; font-size: 0.8rem;">请对照你的涂色，看看是否一致。</div>
+    </div>
+
+    <footer>
+        ⭐ 先根据右侧编码涂色，再点“显示参考答案”自行比对，不自动判分，鼓励自我修正。
+    </footer>
+</div>
+
+<script>
+    const SIZE = 6;
+    let grid = Array(SIZE).fill().map(() => Array(SIZE).fill(0));
+    let cells = [];
+    const gridContainer = document.getElementById('pixelGrid');
+
+    // 预设的编码串（心形图案，可自行修改）
+    const targetCodeRows = [
+        "001100",
+        "011110",
+        "111111",
+        "111111",
+        "011110",
+        "001100"
+    ];
+    // 显示在右侧
+    document.getElementById('givenCode').innerHTML = targetCodeRows.join('<br>');
+
+    // 渲染画板
+    function renderGrid() {
+        for (let i = 0; i < SIZE; i++) {
+            for (let j = 0; j < SIZE; j++) {
+                if (grid[i][j] === 1) {
+                    cells[i][j].classList.add('black');
+                } else {
+                    cells[i][j].classList.remove('black');
+                }
+            }
+        }
+    }
+
+    // 切换格子颜色
+    function toggleCell(row, col) {
+        grid[row][col] = grid[row][col] === 1 ? 0 : 1;
+        renderGrid();
+    }
+
+    // 清空画板
+    function clearAll() {
+        for (let i = 0; i < SIZE; i++) {
+            for (let j = 0; j < SIZE; j++) {
+                grid[i][j] = 0;
+            }
+        }
+        renderGrid();
+    }
+
+    // 构建画板网格
+    function buildGrid() {
+        gridContainer.innerHTML = '';
+        cells = [];
+        for (let i = 0; i < SIZE; i++) {
+            let rowCells = [];
+            for (let j = 0; j < SIZE; j++) {
+                const cellDiv = document.createElement('div');
+                cellDiv.className = 'cell';
+                cellDiv.addEventListener('click', (function(r, c) {
+                    return function() { toggleCell(r, c); };
+                })(i, j));
+                gridContainer.appendChild(cellDiv);
+                rowCells.push(cellDiv);
+            }
+            cells.push(rowCells);
+        }
+    }
+
+    // 显示参考答案（生成右侧小网格）
+    function showAnswer() {
+        const panel = document.getElementById('answerPanel');
+        panel.style.display = 'block';
+        const answerGrid = document.getElementById('answerGrid');
+        answerGrid.innerHTML = '';
+        for (let i = 0; i < SIZE; i++) {
+            for (let j = 0; j < SIZE; j++) {
+                const cell = document.createElement('div');
+                cell.className = 'cell-answer';
+                if (targetCodeRows[i][j] === '1') {
+                    cell.classList.add('black');
+                }
+                answerGrid.appendChild(cell);
+            }
+        }
+    }
+
+    function init() {
+        buildGrid();
+        clearAll();
+        document.getElementById('clearBtn').addEventListener('click', clearAll);
+        document.getElementById('showAnswerBtn').addEventListener('click', showAnswer);
+    }
+    init();
+</script>
+</body>
+</html>

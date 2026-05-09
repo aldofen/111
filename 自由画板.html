@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>自由像素画板 - 二值的黑白图像</title>
+    <style>
+        * { box-sizing: border-box; user-select: none; }
+        body {
+            font-family: 'Microsoft YaHei', system-ui;
+            background: #f0f2f5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+        }
+        .card {
+            max-width: 800px;
+            width: 100%;
+            background: white;
+            border-radius: 36px;
+            box-shadow: 0 20px 35px -8px rgba(0,0,0,0.2);
+            padding: 20px 25px 30px;
+        }
+        h1 { font-size: 1.6rem; margin: 0 0 5px; color: #1e466e; }
+        .sub {
+            background: #eaf4ff;
+            padding: 10px 15px;
+            border-radius: 24px;
+            font-size: 0.85rem;
+            margin: 10px 0 20px;
+            border-left: 4px solid #2c7da0;
+        }
+        .canvas-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 25px;
+            justify-content: center;
+            margin: 20px 0;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            background-color: #ccc;
+            border: 2px solid #8a8a8a;
+            border-radius: 16px;
+            overflow: hidden;
+            width: 100%;
+            max-width: 380px;
+            aspect-ratio: 1 / 1;
+            box-shadow: 0 8px 18px rgba(0,0,0,0.1);
+        }
+        .cell {
+            background-color: white;
+            border: 1px solid #bbb;
+            cursor: pointer;
+            transition: 0.05s linear;
+        }
+        .cell.black { background-color: #1e1e2a; }
+        .cell:hover { filter: brightness(0.96); }
+        .code-panel {
+            background: #1e2a36;
+            border-radius: 24px;
+            padding: 18px;
+            flex: 1;
+            min-width: 200px;
+            color: #b9f6ca;
+        }
+        .code-panel h3 { margin: 0 0 12px; color: #fff; font-size: 1.1rem; }
+        pre {
+            background: #0f1a24;
+            padding: 12px;
+            border-radius: 18px;
+            font-family: monospace;
+            font-size: 0.85rem;
+            line-height: 1.4;
+            white-space: pre-wrap;
+        }
+        .button-bar {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 12px;
+            margin: 20px 0 10px;
+        }
+        button {
+            padding: 8px 20px;
+            border-radius: 40px;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+            transition: 0.1s;
+            background: #6c757d;
+            color: white;
+        }
+        button:nth-child(2) { background: #17a2b8; }
+        button:nth-child(3) { background: #28a745; }
+        button:active { transform: scale(0.97); }
+        footer {
+            text-align: center;
+            font-size: 0.7rem;
+            color: #6c7a89;
+            margin-top: 20px;
+            padding-top: 15px;
+            border-top: 1px solid #e2e8f0;
+        }
+    </style>
+</head>
+<body>
+<div class="card">
+    <h1>🎨 自由像素画板</h1>
+    <div class="sub">
+        💡 黑色方块 = 1 ，白色方块 = 0<br>
+        👆 单击任意格子：可以切换黑白 → 右侧编码会立刻变化！
+    </div>
+
+    <div class="canvas-container">
+        <div class="grid" id="pixelGrid"></div>
+        <div class="code-panel">
+            <h3>📟 二进制编码 (逐行显示)</h3>
+            <pre id="codeDisplay">000000<br>000000<br>000000<br>000000<br>000000<br>000000</pre>
+            <div style="font-size:0.7rem; margin-top: 8px;">⚡ 编码中“1”越多，图像信息量越大</div>
+        </div>
+    </div>
+
+    <div class="button-bar">
+        <button id="clearBtn">🧽 清空画板</button>
+        <button id="checkerBtn">🎲 棋盘格示例</button>
+        <button id="letterABtn">🔤 字母A示例</button>
+    </div>
+    <footer>
+        ⭐ 自由创作：随意单击格子，观察编码变化 | 点击示例图案，看看它们的编码
+    </footer>
+</div>
+
+<script>
+    const SIZE = 6;
+    let grid = Array(SIZE).fill().map(() => Array(SIZE).fill(0));
+    let cells = [];
+    const gridContainer = document.getElementById('pixelGrid');
+    const codeDisplay = document.getElementById('codeDisplay');
+
+    function updateCodeDisplay() {
+        let lines = [];
+        for (let i = 0; i < SIZE; i++) {
+            lines.push(grid[i].join(''));
+        }
+        codeDisplay.innerHTML = lines.join('<br>');
+    }
+
+    function renderGrid() {
+        for (let i = 0; i < SIZE; i++) {
+            for (let j = 0; j < SIZE; j++) {
+                if (grid[i][j] === 1) {
+                    cells[i][j].classList.add('black');
+                } else {
+                    cells[i][j].classList.remove('black');
+                }
+            }
+        }
+        updateCodeDisplay();
+    }
+
+    function toggleCell(row, col) {
+        grid[row][col] = grid[row][col] === 1 ? 0 : 1;
+        renderGrid();
+    }
+
+    function clearAll() {
+        for (let i = 0; i < SIZE; i++) {
+            for (let j = 0; j < SIZE; j++) {
+                grid[i][j] = 0;
+            }
+        }
+        renderGrid();
+    }
+
+    function setCheckerPattern() {
+        clearAll();
+        for (let i = 0; i < SIZE; i++) {
+            for (let j = 0; j < SIZE; j++) {
+                if ((i + j) % 2 === 0) {
+                    grid[i][j] = 1;
+                }
+            }
+        }
+        renderGrid();
+    }
+
+    function setLetterA() {
+        clearAll();
+        const coords = [
+            [1,2], [1,3],
+            [2,1], [2,4],
+            [3,1], [3,2], [3,3], [3,4],
+            [4,1], [4,4],
+            [5,1], [5,4]
+        ];
+        for (let [r, c] of coords) {
+            if (r >= 0 && r < SIZE && c >= 0 && c < SIZE) {
+                grid[r][c] = 1;
+            }
+        }
+        renderGrid();
+    }
+
+    function buildGrid() {
+        gridContainer.innerHTML = '';
+        cells = [];
+        for (let i = 0; i < SIZE; i++) {
+            let rowCells = [];
+            for (let j = 0; j < SIZE; j++) {
+                const cellDiv = document.createElement('div');
+                cellDiv.className = 'cell';
+                cellDiv.addEventListener('click', (function(r, c) {
+                    return function() { toggleCell(r, c); };
+                })(i, j));
+                gridContainer.appendChild(cellDiv);
+                rowCells.push(cellDiv);
+            }
+            cells.push(rowCells);
+        }
+    }
+
+    function init() {
+        buildGrid();
+        clearAll();
+        document.getElementById('clearBtn').addEventListener('click', clearAll);
+        document.getElementById('checkerBtn').addEventListener('click', setCheckerPattern);
+        document.getElementById('letterABtn').addEventListener('click', setLetterA);
+    }
+
+    init();
+</script>
+</body>
+</html>
